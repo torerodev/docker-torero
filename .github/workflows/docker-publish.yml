@@ -2,13 +2,10 @@
 name: Build and Publish Docker Image
 
 on:
-  push:
-    branches: 
-      - main
-    tags:
-      - 'v*.*.*'
+  release:
+    types: [published]
   pull_request:
-    branches:
+    branches: 
       - main
   workflow_dispatch:
     inputs:
@@ -16,6 +13,8 @@ on:
         description: 'Torero version to build'
         required: true
         default: '1.3.0'
+
+  # rebuild weekly to keep things secure and up-to-date
   schedule:
     - cron: '0 2 * * 0'  # weekly on sundays at 2am
 
@@ -27,9 +26,9 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
-      security-events: write  # Add this permission for SARIF uploads
+      security-events: write
     
     steps:
       - name: Checkout code
@@ -50,8 +49,10 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "torero_version=${{ github.event.inputs.torero_version }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            # Extract version from release tag (remove 'v' prefix if present)
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
             echo "torero_version=$VERSION" >> $GITHUB_OUTPUT
           else
             echo "torero_version=1.3.0" >> $GITHUB_OUTPUT
@@ -69,11 +70,11 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "image_tags=local-test:pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
           else
-            # For tags and pushes to main
+            # For releases and workflow dispatch
             TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.torero_version }}"
             
-            # If it's the newest version or a workflow dispatch, also tag as latest
-            if [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # If it's a release or workflow dispatch, also tag as latest
+            if [[ "${{ github.event_name }}" == "release" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
               TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
             fi
             
@@ -85,9 +86,11 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          # Don't push for PRs, only push for other events
+
+          # don't push for PRs, only push for releases or manual workflow
           push: ${{ github.event_name != 'pull_request' }}
-          # Load into Docker daemon for PR builds so tests can run
+
+          # load into Docker daemon for PR builds so tests can run
           load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.image_tags }}
           labels: |
@@ -139,14 +142,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
-        # Only run this step when it's likely to have proper permissions
+
+        # only run this step with proper permissions
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-      
-      - name: Create release for tags
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          name: Release ${{ steps.versions.outputs.torero_version }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+...
