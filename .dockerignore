@@ -1,0 +1,29 @@
+# git
+.git
+.gitignore
+.github
+
+# docs
+README.md
+LICENSE
+*.md
+
+# build artifacts
+Makefile
+
+# editor stuff
+.vscode
+.idea
+*.swp
+*~
+
+# ci/cd configurations
+.travis.yml
+.gitlab-ci.yml
+
+# logs
+*.log
+
+# local testing scripts
+test/
+tests/
