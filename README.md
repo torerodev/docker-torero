@@ -113,6 +113,32 @@ docker build -t torerodev/torero:1.3.0 \
 make build-all TORERO_VERSIONS="1.2.0 1.3.0"
 ```
 
+## CLI runner script
+Who doesn't love typing less? The _cli-runner.sh_ script provides a convenient way to run, test, and do house cleaning locally when running on your workstation. I use it for quick and dirty testing 🚀 It takes the following arguments:
+
+```bash
+# build + run
+./torero-local.sh --build --run
+
+# run and immediately ssh into container
+./torero-local.sh --run --ssh
+
+# check status
+./torero-local.sh --status
+
+# stop container
+./torero-local.sh --stop
+
+# start a stopped container
+./torero-local.sh --start
+
+# view logs
+./torero-local.sh --logs
+
+# clean up everything (will prompt before deleting local data)
+./torero-local.sh --clean
+```
+
 ## Software Licenses
 
 This project incorporates the following software with their respective licenses:
