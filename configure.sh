@@ -28,12 +28,12 @@ check_version() {
 install_packages() {
     echo "installing dependencies..."
     apt-get update -y || { echo "failed to update package list" >&2; exit 1; }
+    
+    # Always install core packages
     apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         git \
-        openssh-server \
-        sudo \
         tzdata \
         gnupg \
         dirmngr \
@@ -42,15 +42,26 @@ install_packages() {
         iputils-ping \
         iproute2 \
         net-tools \
-        unzip || { echo "failed to install packages" >&2; exit 1; }
+        unzip || { echo "failed to install core packages" >&2; exit 1; }
+        
+    # only install ssh-related packages if SSH is enabled
+    if [ "${ENABLE_SSH_ADMIN:-false}" = "true" ]; then
+        apt-get install -y --no-install-recommends \
+            openssh-server \
+            sudo || { echo "failed to install SSH packages" >&2; exit 1; }
+    fi
 }
 
 setup_admin_user() {
     echo "setting up admin user..."
     useradd -m -s /bin/bash admin || { echo "failed to create admin user" >&2; exit 1; }
-    echo "admin:admin" | chpasswd || { echo "failed to set admin password" >&2; exit 1; }
-    echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
-    chmod 0440 /etc/sudoers.d/admin || { echo "failed to set sudoers permissions" >&2; exit 1; }
+    
+    # only set password if ssh is enabled
+    if [ "${ENABLE_SSH_ADMIN:-false}" = "true" ]; then
+        echo "admin:admin" | chpasswd || { echo "failed to set admin password" >&2; exit 1; }
+        echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
+        chmod 0440 /etc/sudoers.d/admin || { echo "failed to set sudoers permissions" >&2; exit 1; }
+    fi
     
     mkdir -p /home/admin/data
     chown admin:admin /home/admin/data
@@ -85,7 +96,7 @@ install_torero() {
     mv /tmp/torero /usr/local/bin/torero || { echo "failed to move torero" >&2; exit 1; }
     chmod +x /usr/local/bin/torero || { echo "failed to set torero permissions" >&2; exit 1; }
     
-    # Simulate EULA acceptance during first run
+    # simulate eula acceptance on first run
     echo "simulating EULA acceptance for torero..."
     cat > /tmp/accept-eula.exp << 'EOF'
 #!/usr/bin/expect -f
@@ -98,10 +109,10 @@ EOF
     chmod +x /tmp/accept-eula.exp
     /tmp/accept-eula.exp || { echo "failed to simulate EULA acceptance" >&2; exit 1; }
     
-    # Clean up expect script
+    # clean up expect script
     rm -f "$torero_tar" /tmp/accept-eula.exp
     
-    # Verify installation
+    # verify install
     /usr/local/bin/torero version || { echo "torero installation verification failed" >&2; exit 1; }
 }
 
@@ -129,6 +140,9 @@ create_manifest() {
   "build_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "tools": {
     "torero": "${TORERO_VERSION}"
+  },
+  "config": {
+    "ssh_enabled": "${ENABLE_SSH_ADMIN:-false}"
   }
 }
 EOF
@@ -138,9 +152,17 @@ main() {
     check_version
     install_packages
     setup_admin_user
-    configure_ssh
+    
+    # only configure ssh if enabled
+    if [ "${ENABLE_SSH_ADMIN:-false}" = "true" ]; then
+        configure_ssh
+        echo "SSH admin access enabled"
+    else
+        echo "SSH admin access disabled"
+    fi
+    
     install_torero
-    handle_torero_eula  # Reinforces .license-accepted after initial run
+    handle_torero_eula  # reinforces .license-accepted after initial run
     create_manifest
     cleanup
     echo "configuration complete!"
