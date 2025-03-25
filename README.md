@@ -57,6 +57,8 @@ services:
 ...
 ```
 
+![docker compose](./img/docker-compose.gif)
+
 ### Connecting to the container
 You can connect to the container with 'admin' when _ENABLE_SSH_ADMIN=true_ is set during runtime.
 
