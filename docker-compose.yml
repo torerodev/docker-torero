@@ -8,8 +8,9 @@ services:
     volumes:
       - ./data:/home/admin/data
     environment:
-      - ENABLE_SSH_ADMIN=true=true  # enable ssh admin at runtime
-      - INSTALL_OPENTOFU=false  # skip OpenTofu installation at runtime
+      - ENABLE_SSH_ADMIN=true  # enable ssh admin at runtime
+      - INSTALL_OPENTOFU=true  # enable OpenTofu installation at runtime
+      - OPENTOFU_VERSION=1.9.0
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "torero", "version"]
