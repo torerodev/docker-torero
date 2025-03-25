@@ -24,6 +24,7 @@ DATA_DIR="$PWD/torero-data"
 TORERO_VERSION="1.3.0"
 OPENTOFU_VERSION="1.6.2"
 REPO_DIR="$PWD"
+ENABLE_SSH="false"  # Default to disabled SSH
 
 # fancy colors for output
 GREEN='\033[0;32m'
@@ -39,7 +40,7 @@ usage() {
     echo -e "${BLUE}Options:${NC}"
     echo "  --build         Build a new Docker image locally"
     echo "  --run           Run the container (builds image if it doesn't exist)"
-    echo "  --ssh           SSH into the running container"
+    echo "  --ssh           Enable SSH and connect to the running container"
     echo "  --logs          View container logs"
     echo "  --status        Display status of the container"
     echo "  --stop          Stop the container"
@@ -47,6 +48,8 @@ usage() {
     echo "  --restart       Restart the container"
     echo "  --destroy       Remove the container"
     echo "  --clean         Remove the container, image, and data directory"
+    echo "  --exec CMD      Execute a command in the container"
+    echo "  --enable-ssh    Enable SSH access in the container (with --run)"
     echo "  --help          Display this help message"
     echo
     echo -e "${BLUE}Configuration:${NC}"
@@ -54,11 +57,14 @@ usage() {
     echo "  OPENTOFU_VERSION=${OPENTOFU_VERSION}"
     echo "  DATA_DIR=${DATA_DIR}"
     echo "  SSH_PORT=${SSH_PORT}"
+    echo "  ENABLE_SSH=${ENABLE_SSH}"
     echo
     echo -e "${BLUE}Examples:${NC}"
-    echo "  $0 --build --run    # Build image and run container"
-    echo "  $0 --run --ssh      # Run container and SSH into it"
-    echo "  $0 --clean          # Remove container, image, and data directory"
+    echo "  $0 --build --run                   # Build image and run container"
+    echo "  $0 --run --enable-ssh              # Run container with SSH enabled"
+    echo "  $0 --exec \"torero version\"         # Run torero command in container"
+    echo "  $0 --exec \"tofu version\"           # Run OpenTofu command in container"
+    echo "  $0 --clean                         # Remove container, image, and data directory"
     echo
 }
 
@@ -89,7 +95,6 @@ check_image() {
 }
 
 run_container() {
-
     # build image if it doesn't exist
     if ! check_image; then
         echo -e "${YELLOW}Image not found, building it now...${NC}"
@@ -124,12 +129,20 @@ run_container() {
 
     # run new container
     echo -e "${BLUE}Starting new Torero container with OpenTofu ${OPENTOFU_VERSION}...${NC}"
+    
+    PORT_MAPPING=""
+    if [ "$ENABLE_SSH" = "true" ]; then
+        PORT_MAPPING="-p $SSH_PORT:22"
+        echo -e "${BLUE}SSH access will be enabled on port ${SSH_PORT}${NC}"
+    fi
+    
     docker run -d \
         --name "$CONTAINER_NAME" \
-        -p "$SSH_PORT:22" \
+        $PORT_MAPPING \
         -v "$DATA_DIR:/home/admin/data" \
         -e INSTALL_OPENTOFU=true \
         -e OPENTOFU_VERSION="$OPENTOFU_VERSION" \
+        -e ENABLE_SSH_ADMIN="$ENABLE_SSH" \
         "$IMAGE_NAME"
 
     # check if container started successfully
@@ -151,7 +164,15 @@ display_container_info() {
     
     if [ -n "$container_id" ]; then
         echo -e "${BLUE}Container ID:${NC} $container_id"
-        echo -e "${BLUE}SSH access:${NC} ssh admin@localhost -p $SSH_PORT (password: admin)"
+        
+        # Check if SSH is enabled
+        CONTAINER_SSH=$(docker inspect -f '{{.Config.Env}}' $CONTAINER_NAME | grep -o "ENABLE_SSH_ADMIN=true")
+        if [ -n "$CONTAINER_SSH" ]; then
+            echo -e "${BLUE}SSH access:${NC} ssh admin@localhost -p $SSH_PORT (password: admin)"
+        else
+            echo -e "${BLUE}SSH access:${NC} Disabled (use --enable-ssh to enable)"
+        fi
+        
         echo -e "${BLUE}Data directory:${NC} $DATA_DIR"
         echo -e "${BLUE}OpenTofu version:${NC} $OPENTOFU_VERSION"
         echo -e "${BLUE}Container status:${NC} $(docker inspect -f '{{.State.Status}}' $CONTAINER_NAME)"
@@ -159,6 +180,9 @@ display_container_info() {
         # get IP of container
         local container_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $CONTAINER_NAME)
         echo -e "${BLUE}Container IP:${NC} $container_ip"
+        
+        # Show how to run commands
+        echo -e "${BLUE}Run commands in container:${NC} $0 --exec \"torero version\""
     else
         echo -e "${YELLOW}Container ${CONTAINER_NAME} is not running.${NC}"
     fi
@@ -170,9 +194,27 @@ ssh_to_container() {
         echo -e "${RED}Container ${CONTAINER_NAME} is not running.${NC}"
         return 1
     fi
+    
+    # Check if SSH is enabled in the container
+    CONTAINER_SSH=$(docker inspect -f '{{.Config.Env}}' $CONTAINER_NAME | grep -o "ENABLE_SSH_ADMIN=true")
+    if [ -z "$CONTAINER_SSH" ]; then
+        echo -e "${YELLOW}SSH is not enabled in this container. Restart with --enable-ssh option.${NC}"
+        return 1
+    fi
 
     echo -e "${BLUE}Connecting to container via SSH...${NC}"
     ssh admin@localhost -p "$SSH_PORT"
+}
+
+# execute command in container
+exec_in_container() {
+    if ! docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+        echo -e "${RED}Container ${CONTAINER_NAME} is not running.${NC}"
+        return 1
+    fi
+
+    echo -e "${BLUE}Executing command in container: ${YELLOW}$1${NC}"
+    docker exec -it $CONTAINER_NAME bash -c "$1"
 }
 
 # display container logs
@@ -362,6 +404,8 @@ SHOULD_START=false
 SHOULD_RESTART=false
 SHOULD_DESTROY=false
 SHOULD_CLEAN=false
+SHOULD_EXEC=false
+EXEC_CMD=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -403,6 +447,19 @@ while [[ $# -gt 0 ]]; do
             ;;
         --clean)
             SHOULD_CLEAN=true
+            shift
+            ;;
+        --exec)
+            SHOULD_EXEC=true
+            if [ $# -lt 2 ]; then
+                echo -e "${RED}Error: --exec requires a command argument${NC}"
+                exit 1
+            fi
+            EXEC_CMD="$2"
+            shift 2
+            ;;
+        --enable-ssh)
+            ENABLE_SSH="true"
             shift
             ;;
         --help)
@@ -456,6 +513,10 @@ if [ "$SHOULD_LOGS" = true ]; then
     show_logs || exit $?
 fi
 
+if [ "$SHOULD_EXEC" = true ]; then
+    exec_in_container "$EXEC_CMD" || exit $?
+fi
+
 if [ "$SHOULD_SSH" = true ]; then
     ssh_to_container || exit $?
 fi
@@ -464,7 +525,7 @@ fi
 if [ "$SHOULD_BUILD" = false ] && [ "$SHOULD_RUN" = false ] && [ "$SHOULD_SSH" = false ] && \
    [ "$SHOULD_LOGS" = false ] && [ "$SHOULD_STATUS" = false ] && [ "$SHOULD_STOP" = false ] && \
    [ "$SHOULD_START" = false ] && [ "$SHOULD_RESTART" = false ] && [ "$SHOULD_DESTROY" = false ] && \
-   [ "$SHOULD_CLEAN" = false ]; then
+   [ "$SHOULD_CLEAN" = false ] && [ "$SHOULD_EXEC" = false ]; then
     check_status
 fi
 

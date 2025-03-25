@@ -13,6 +13,9 @@ ENV TORERO_VERSION=${TORERO_VERSION}
 ENV OPENTOFU_VERSION=1.9.0
 ENV INSTALL_OPENTOFU=true
 
+# ssh access is disabled by default
+ENV ENABLE_SSH_ADMIN=false
+
 # reduce docker image size
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -24,7 +27,7 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /configure.sh && /configure.sh && \
     chmod +x /entrypoint.sh
 
-# expose ssh port
+# expose ssh port (only used if SSH is enabled)
 EXPOSE 22
 
 # create volume for persistent data
@@ -37,5 +40,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
 
-# default command
-CMD ["/usr/sbin/sshd", "-D"]
+# default command depends on SSH being enabled
+CMD ["/bin/bash", "-c", "if [ \"$ENABLE_SSH_ADMIN\" = \"true\" ]; then /usr/sbin/sshd -D; else tail -f /dev/null; fi"]

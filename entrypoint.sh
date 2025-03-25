@@ -86,6 +86,52 @@ configure_dns() {
     echo -e "nameserver 8.8.8.8\nnameserver 8.8.4.4" > /etc/resolv.conf
 }
 
+# check if ssh access is needed but not configured at build time
+setup_ssh_runtime() {
+    if [ "${ENABLE_SSH_ADMIN}" = "true" ]; then
+
+        # check if ssh is already set up
+        if [ ! -f "/etc/ssh/sshd_config" ] || ! grep -q "PermitRootLogin" /etc/ssh/sshd_config; then
+            echo "SSH was not enabled at build time but requested at runtime. Installing SSH..."
+            apt-get update -y
+            apt-get install -y --no-install-recommends openssh-server sudo
+            
+            # set up admin user
+            if ! id admin &>/dev/null; then
+                useradd -m -s /bin/bash admin
+            fi
+            echo "admin:admin" | chpasswd
+            echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
+            chmod 0440 /etc/sudoers.d/admin
+            
+            # configure ssh
+            mkdir -p /var/run/sshd
+            echo "PermitRootLogin no" >> /etc/ssh/sshd_config
+            echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+            echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+            echo "PermitEmptyPasswords no" >> /etc/ssh/sshd_config
+            echo "LoginGraceTime 120" >> /etc/ssh/sshd_config
+            
+            mkdir -p /home/admin/.ssh
+            chmod 700 /home/admin/.ssh
+            touch /home/admin/.ssh/authorized_keys
+            chmod 600 /home/admin/.ssh/authorized_keys
+            chown -R admin:admin /home/admin/.ssh
+            
+            ssh-keygen -A
+            
+            # update manifest
+            if [ -f "/etc/torero-image-manifest.json" ] && command -v jq &> /dev/null; then
+                jq '.config.ssh_enabled = "true"' /etc/torero-image-manifest.json > /tmp/manifest.json
+                mv /tmp/manifest.json /etc/torero-image-manifest.json
+            fi
+            
+            echo "SSH access enabled at runtime"
+        fi
+    fi
+}
+
 configure_dns
+setup_ssh_runtime
 install_opentofu || echo "opentofu installation failed, continuing without it"
 exec "$@"
