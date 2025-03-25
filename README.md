@@ -97,9 +97,11 @@ topology:
         - $PWD/data:/home/admin/data
 
   links:
-    - endpoints: ["ceos1:eth1", "torero:eth1"]
+    - endpoints: ["ceos:eth1", "torero:eth1"]
 ...
 ```
+
+![clab deploy](./img/clab-deploy.gif)
 
 ## CLI runner script
 The _cli-runner.sh_ script provides a convenient way to run, test, and do house cleaning locally when running on your workstation. I use it for quick and dirty testing 🚀
