@@ -33,7 +33,7 @@ docker run -d -p 2222:22 torerodev/torero:latest
 ![docker cli](./img/docker-cli.gif)
 
 ### docker compose _(with latest OpenTofu version)_
-```bash
+```yaml
 ---
 services:
   torero:
