@@ -1,0 +1,20 @@
+---
+name: ceos
+
+topology:
+  nodes:
+    ceos:
+      kind: arista_ceos
+      image: ceos:4.33.2F
+    torero:
+      kind: linux
+      image: torerodev/torero:latest
+      env:
+        INSTALL_OPENTOFU: "false" # this flag skips OpenTofu installation at runtime
+        ENABLE_SSH_ADMIN: "true"
+      binds:
+        - $PWD/data:/home/admin/data
+
+  links:
+    - endpoints: ["ceos:eth1", "torero:eth1"]
+...

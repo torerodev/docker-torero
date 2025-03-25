@@ -1,0 +1,21 @@
+---
+services:
+  torero:
+    image: torerodev/torero:latest
+    container_name: torero
+    ports:
+      - "2222:22"  # use when ENABLE_SSH_ADMIN=true
+    volumes:
+      - ./data:/home/admin/data
+    environment:
+      - ENABLE_SSH_ADMIN=true  # enable ssh admin at runtime
+      - INSTALL_OPENTOFU=true  # enable OpenTofu installation at runtime
+      - OPENTOFU_VERSION=1.9.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "torero", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+...
