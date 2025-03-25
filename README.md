@@ -76,7 +76,7 @@ The following environment variables can be set at runtime:
 | `OPENTOFU_VERSION` | `1.9.0` | Set OpenTofu version   |
 
 ## Using with ContainerLab
-The following _topology_ file will launch a basic [Arista](https://www.arista.com/en/) cEOS _(4.33.2F)_ and _torero_ lab. Both nodes are reachable via SSH using '<admin>:<admin>' for login.
+The following _topology_ file will launch a basic [Arista](https://www.arista.com/en/) cEOS _(4.33.2F)_ and _torero_ lab. Both nodes are reachable via SSH using 'admin:admin' for login.
 
 ```yaml
 ---
@@ -99,39 +99,6 @@ topology:
   links:
     - endpoints: ["ceos1:eth1", "torero:eth1"]
 ...
-```
-
-## Environment Variables
-
-The following environment variables can be set at runtime:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `INSTALL_OPENTOFU` | `true`  | Whether to install OpenTofu    |
-| `OPENTOFU_VERSION` | `1.9.0` | Version of OpenTofu to install |
-
-## building the image
-
-### Building a single version
-
-```bash
-make build
-
-# or specify version:
-make build TORERO_VERSION=1.3.0
-```
-
-Building without make:
-
-```bash
-docker build -t torerodev/torero:1.3.0 \
-  --build-arg TORERO_VERSION=1.3.0 .
-```
-
-### Building multiple versions
-
-```bash
-make build-all TORERO_VERSIONS="1.2.0 1.3.0"
 ```
 
 ## CLI runner script
