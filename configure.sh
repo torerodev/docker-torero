@@ -23,6 +23,12 @@ check_version() {
         echo "error: torero_version must be set" >&2
         exit 1
     fi
+    
+    # check if python version is set
+    if [ -z "${PYTHON_VERSION:-}" ]; then
+        echo "error: python_version must be set" >&2
+        exit 1
+    fi
 }
 
 install_packages() {
@@ -42,9 +48,23 @@ install_packages() {
         iputils-ping \
         iproute2 \
         net-tools \
-        unzip || { echo "failed to install core packages" >&2; exit 1; }
+        unzip \
+        locales \
+        build-essential \
+        zlib1g-dev \
+        libncurses5-dev \
+        libgdbm-dev \
+        libnss3-dev \
+        libssl-dev \
+        libreadline-dev \
+        libffi-dev \
+        libsqlite3-dev \
+        vim \
+        wget \
+        libbz2-dev \
+        || { echo "failed to install core packages" >&2; exit 1; }
         
-    # only install ssh-related packages if SSH is enabled
+    # only install ssh-related packages if ssh is enabled
     if [ "${ENABLE_SSH_ADMIN:-false}" = "true" ]; then
         apt-get install -y --no-install-recommends \
             openssh-server \
@@ -85,6 +105,19 @@ configure_ssh() {
     ssh-keygen -A
 }
 
+configure_locale() {
+    echo "configuring locale..."
+    
+    # set up locale
+    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+    locale-gen
+    update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+    
+    # add to environment
+    echo "export LANG=en_US.UTF-8" >> /etc/profile.d/locale.sh
+    echo "export LC_ALL=en_US.UTF-8" >> /etc/profile.d/locale.sh
+}
+
 install_torero() {
     local torero_url="https://download.torero.dev/torero-v${TORERO_VERSION}-linux-amd64.tar.gz"
     local torero_tar="/tmp/torero.tar.gz"
@@ -116,6 +149,52 @@ EOF
     /usr/local/bin/torero version || { echo "torero installation verification failed" >&2; exit 1; }
 }
 
+# set up python with specified version
+setup_python() {
+    # extract major.minor version
+    PYTHON_MAJOR_MINOR=$(echo "${PYTHON_VERSION}" | cut -d. -f1,2)
+    
+    echo "setting up python ${PYTHON_VERSION}..."
+    
+    # download and extract python
+    cd /tmp
+    wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz
+    tar -xf Python-${PYTHON_VERSION}.tgz
+    cd Python-${PYTHON_VERSION}
+    
+    # configure and install
+    ./configure --enable-optimizations
+    make -j $(nproc)
+    make altinstall
+    
+    # create symlinks
+    ln -sf /usr/local/bin/python${PYTHON_MAJOR_MINOR} /usr/local/bin/python3
+    ln -sf /usr/local/bin/python3 /usr/local/bin/python
+    ln -sf /usr/local/bin/pip${PYTHON_MAJOR_MINOR} /usr/local/bin/pip3
+    ln -sf /usr/local/bin/pip3 /usr/local/bin/pip
+    
+    # upgrade pip and install essential packages
+    python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel virtualenv
+    
+    # create a virtual environment for admin user
+    if [ -d "/home/admin" ]; then
+        mkdir -p /home/admin/.venvs
+        python3 -m venv /home/admin/.venvs/default
+        chown -R admin:admin /home/admin/.venvs
+        
+        # add activation to .bashrc
+        echo 'export PATH="/home/admin/.venvs/default/bin:$PATH"' >> /home/admin/.bashrc
+    fi
+    
+    # clean up
+    cd /
+    rm -rf /tmp/Python-${PYTHON_VERSION} /tmp/Python-${PYTHON_VERSION}.tgz
+    
+    # verify installation
+    python3 --version
+    pip3 --version
+}
+
 handle_torero_eula() {
     echo "pre-accepting torero EULA for admin user..."
     mkdir -p /home/admin/.torero.d
@@ -139,7 +218,8 @@ create_manifest() {
 {
   "build_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "tools": {
-    "torero": "${TORERO_VERSION}"
+    "torero": "${TORERO_VERSION}",
+    "python": "$(python3 --version 2>&1)"
   },
   "config": {
     "ssh_enabled": "${ENABLE_SSH_ADMIN:-false}"
@@ -151,7 +231,9 @@ EOF
 main() {
     check_version
     install_packages
+    configure_locale
     setup_admin_user
+    setup_python
     
     # only configure ssh if enabled
     if [ "${ENABLE_SSH_ADMIN:-false}" = "true" ]; then

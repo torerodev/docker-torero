@@ -5,9 +5,17 @@ LABEL org.opencontainers.image.source="https://github.com/torerodev/docker-torer
 LABEL org.opencontainers.image.description="torero docker image"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
+# default locale
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
 # default version
 ARG TORERO_VERSION=1.3.0
 ENV TORERO_VERSION=${TORERO_VERSION}
+
+# default python version
+ARG PYTHON_VERSION=3.13.0
+ENV PYTHON_VERSION=${PYTHON_VERSION}
 
 # default opentofu version (can be overridden at runtime)
 ENV OPENTOFU_VERSION=1.9.0

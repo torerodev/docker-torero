@@ -22,9 +22,10 @@ IMAGE_NAME="torero-local:latest"
 SSH_PORT=2222
 DATA_DIR="$PWD/torero-data"
 TORERO_VERSION="1.3.0"
+PYTHON_VERSION="3.13.0"
 OPENTOFU_VERSION="1.6.2"
 REPO_DIR="$PWD"
-ENABLE_SSH="false"  # Default to disabled SSH
+ENABLE_SSH="false"
 
 # fancy colors for output
 GREEN='\033[0;32m'
@@ -54,6 +55,7 @@ usage() {
     echo
     echo -e "${BLUE}Configuration:${NC}"
     echo "  TORERO_VERSION=${TORERO_VERSION}"
+    echo "  PYTHON_VERSION=${PYTHON_VERSION}"
     echo "  OPENTOFU_VERSION=${OPENTOFU_VERSION}"
     echo "  DATA_DIR=${DATA_DIR}"
     echo "  SSH_PORT=${SSH_PORT}"
@@ -64,6 +66,7 @@ usage() {
     echo "  $0 --run --enable-ssh              # Run container with SSH enabled"
     echo "  $0 --exec \"torero version\"         # Run torero command in container"
     echo "  $0 --exec \"tofu version\"           # Run OpenTofu command in container"
+    echo "  $0 --exec \"python3 --version\"      # Check Python version in container"
     echo "  $0 --clean                         # Remove container, image, and data directory"
     echo
 }
@@ -73,6 +76,7 @@ build_image() {
     echo -e "${BLUE}Building Docker image ${IMAGE_NAME}...${NC}"
     docker build -t "$IMAGE_NAME" \
         --build-arg TORERO_VERSION="$TORERO_VERSION" \
+        --build-arg PYTHON_VERSION="$PYTHON_VERSION" \
         "$REPO_DIR"
 
     if [ $? -eq 0 ]; then
@@ -174,6 +178,8 @@ display_container_info() {
         fi
         
         echo -e "${BLUE}Data directory:${NC} $DATA_DIR"
+        echo -e "${BLUE}Torero version:${NC} $TORERO_VERSION"
+        echo -e "${BLUE}Python version:${NC} $PYTHON_VERSION"
         echo -e "${BLUE}OpenTofu version:${NC} $OPENTOFU_VERSION"
         echo -e "${BLUE}Container status:${NC} $(docker inspect -f '{{.State.Status}}' $CONTAINER_NAME)"
         

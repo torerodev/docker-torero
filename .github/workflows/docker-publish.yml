@@ -13,6 +13,14 @@ on:
         description: 'Torero version to build'
         required: true
         default: '1.3.0'
+      python_version:
+        description: 'Python version to install'
+        required: true
+        default: '3.13.0'
+      opentofu_version:
+        description: 'OpenTofu version to test'
+        required: false
+        default: '1.9.0'
 
   # rebuild weekly to keep things secure and up-to-date
   schedule:
@@ -44,18 +52,24 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Determine Torero version
+      - name: Determine versions
         id: versions
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "torero_version=${{ github.event.inputs.torero_version }}" >> $GITHUB_OUTPUT
+            echo "python_version=${{ github.event.inputs.python_version }}" >> $GITHUB_OUTPUT
+            echo "opentofu_version=${{ github.event.inputs.opentofu_version }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "release" ]]; then
             # Extract version from release tag (remove 'v' prefix if present)
             VERSION="${{ github.event.release.tag_name }}"
             VERSION="${VERSION#v}"
             echo "torero_version=$VERSION" >> $GITHUB_OUTPUT
+            echo "python_version=3.13.0" >> $GITHUB_OUTPUT  # default python version for releases
+            echo "opentofu_version=1.6.2" >> $GITHUB_OUTPUT  # default opentofu version for releases
           else
             echo "torero_version=1.3.0" >> $GITHUB_OUTPUT
+            echo "python_version=3.13.0" >> $GITHUB_OUTPUT  # default python version for other builds
+            echo "opentofu_version=1.6.2" >> $GITHUB_OUTPUT  # default opentofu version for other builds
           fi
       
       - name: Install jq
@@ -99,6 +113,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           build-args: |
             TORERO_VERSION=${{ steps.versions.outputs.torero_version }}
+            PYTHON_VERSION=${{ steps.versions.outputs.python_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -113,6 +128,9 @@ jobs:
           
           # Test Torero
           docker run --rm $TEST_IMAGE torero version
+          
+          # test python installation
+          docker run --rm $TEST_IMAGE python3 --version
       
       - name: Test OpenTofu installation
         run: |
@@ -126,7 +144,7 @@ jobs:
           # Test OpenTofu installation
           docker run --rm \
             -e INSTALL_OPENTOFU=true \
-            -e OPENTOFU_VERSION=1.6.2 \
+            -e OPENTOFU_VERSION=${{ steps.versions.outputs.opentofu_version }} \
             $TEST_IMAGE \
             bash -c "tofu version || exit 0"
       
