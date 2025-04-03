@@ -47,6 +47,7 @@ services:
       - ENABLE_SSH_ADMIN=true  # enable ssh admin at runtime
       - INSTALL_OPENTOFU=true  # enable OpenTofu installation at runtime
       - OPENTOFU_VERSION=1.9.0
+      - PYTHON_VERSION=3.13.0
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "torero", "version"]
@@ -71,9 +72,10 @@ The following environment variables can be set at runtime:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ENABLE_SSH_ADMIN` | `false` | Enable SSH admin user  |
-| `INSTALL_OPENTOFU` | `true`  | Install OpenTofu       |
-| `OPENTOFU_VERSION` | `1.9.0` | Set OpenTofu version   |
+| `ENABLE_SSH_ADMIN` | `false`  | Enable SSH admin user  |
+| `INSTALL_OPENTOFU` | `true`   | Install OpenTofu       |
+| `OPENTOFU_VERSION` | `1.9.0`  | Set OpenTofu version   |
+| `PYTHON_VERSION`   | `3.13.0` | Set Python version     |
 
 ## Using with ContainerLab
 The following _topology_ file will launch a basic [Arista](https://www.arista.com/en/) cEOS _(4.33.2F)_ and _torero_ lab. Both nodes are reachable via SSH using 'admin:admin' for login.
