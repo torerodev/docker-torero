@@ -21,7 +21,7 @@ DOCKER_USERNAME ?= torerodev
 
 # default versions if not specified
 # override with 'make build TORERO_VERSION=x.x.x'
-TORERO_VERSION ?= 1.3.0
+TORERO_VERSION ?= 1.3.1
 
 # default python version
 PYTHON_VERSION ?= 3.13.0
@@ -33,7 +33,7 @@ TAG_AS_LATEST ?= true
 FORCE_REBUILD ?= false
 
 # all available torero versions for build-all
-TORERO_VERSIONS ?= 1.3.0
+TORERO_VERSIONS ?= 1.3.1
 
 help:
 	@echo "available targets:"
@@ -46,16 +46,16 @@ help:
 	@echo ""
 	@echo "variables:"
 	@echo "  DOCKER_USERNAME   - docker hub username (default: torerodev)"
-	@echo "  TORERO_VERSION    - torero version to build (default: 1.3.0)"
+	@echo "  TORERO_VERSION    - torero version to build (default: 1.3.1)"
 	@echo "  PYTHON_VERSION    - python version to install (default: 3.13.0)"
-	@echo "  TORERO_VERSIONS   - space-separated list of torero versions for build-all (default: 1.3.0)"
+	@echo "  TORERO_VERSIONS   - space-separated list of torero versions for build-all (default: 1.3.1)"
 	@echo "  FORCE_REBUILD     - set to 'true' to force rebuild (default: false)"
 	@echo "  TAG_AS_LATEST     - set to 'true' to tag latest version (default: true)"
 	@echo ""
 	@echo "examples:"
 	@echo "  make build"
-	@echo "  make build TORERO_VERSION=1.3.0 PYTHON_VERSION=3.13.0"
-	@echo "  make build-all TORERO_VERSIONS=\"1.2.0 1.3.0\""
+	@echo "  make build TORERO_VERSION=1.3.1 PYTHON_VERSION=3.13.0"
+	@echo "  make build-all TORERO_VERSIONS=\"1.2.0 1.3.1\""
 	@echo "  make push"
 	@echo "  make push-all"
 
